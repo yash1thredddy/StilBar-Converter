@@ -1,0 +1,85 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+stilbar_env/
+stilbar_venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Documentation files (keep README.md but ignore generated docs)
+*.docx
+*.pdf
+StilbenoidsMacroBAR.docx
+StilbenoidsMacroBAR.pdf
+STILbenoid\ BARcodes_v13clw_*.pdf
+
+# Temporary and backup files
+*.tmp
+*.bak
+*.log
+*~
+.*.swp
+.*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Claude Code settings (keep local settings private)
+.claude/settings.local.json
+
+# Test and validation output files
+validation_report.txt
+
+# CSV backup files (keep main CSV files but ignore backups)
+*_Original.csv
+*_Clean.csv
+
+# New folder (appears to be duplicate/backup)
+New folder/
