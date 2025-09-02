@@ -153,15 +153,16 @@ def display_results(result: Dict):
     metadata = result['metadata']
     
     if smiles:
+        st.success(f"✅ Conversion successful!")
+        
         # Display compound name if available
         compound_name = metadata.get('compound_name', 'Unknown')
-        compound_number = metadata.get('compound_number', 'N/A')
+        if compound_name != 'Unknown':
+            st.info(f"🧬 **Compound**: {compound_name}")
         
-        if compound_name != 'Unknown' and compound_number != 'N/A':
-            st.success(f"✅ Conversion successful!")
-            st.info(f"🧬 **Compound {compound_number}**: {compound_name}")
-        else:
-            st.success(f"✅ Conversion successful!")
+        # Show StilBAR code for reference
+        st.markdown("**StilBAR Code:**")
+        st.code(stilbar_code, language='text')
         
         # SMILES output
         st.markdown("**SMILES String:**")
