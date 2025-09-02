@@ -168,31 +168,6 @@ def display_results(result: Dict):
         st.markdown("**SMILES String:**")
         st.code(smiles, language='text')
         
-        # Copy button with unique key
-        import time
-        import hashlib
-        # Create unique key using hash of stilbar code and timestamp
-        unique_id = hashlib.md5(f"{stilbar_code}_{time.time()}".encode()).hexdigest()[:8]
-        copy_key = f"copy_smiles_{unique_id}"
-        if st.button("📋 Copy SMILES", key=copy_key):
-            st.write("SMILES copied to clipboard!")
-            st.code(smiles)  # Simple display since we can't actually copy to clipboard
-        
-        # Metadata
-        with st.expander("Conversion Details"):
-            st.write(f"**Method:** {metadata.get('method', 'unknown')}")
-            st.write(f"**Confidence:** {metadata.get('confidence', 0.0):.2f}")
-            st.write(f"**Type:** {metadata.get('type', 'unknown')}")
-            
-            if 'linkage_info' in metadata:
-                st.write(f"**Linkage:** {metadata['linkage_info']}")
-            
-            if 'note' in metadata:
-                if metadata.get('type') == 'partial_match':
-                    st.warning(f"**Note:** {metadata['note']}")
-                else:
-                    st.info(f"**Note:** {metadata['note']}")
-        
         # Molecular analysis (if RDKit is available)
         if RDKIT_AVAILABLE and smiles:
             analyze_molecule(smiles, stilbar_code)
