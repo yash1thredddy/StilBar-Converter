@@ -36,13 +36,15 @@ def main():
     st.sidebar.header("Navigation")
     page = st.sidebar.selectbox(
         "Choose a page:",
-        ["StilBAR Converter", "Known Compounds", "Batch Processing", "About"]
+        ["StilBAR Converter", "Known Compounds", "Add New Compound", "Batch Processing", "About"]
     )
     
     if page == "StilBAR Converter":
         converter_page()
     elif page == "Known Compounds":
         known_compounds_page()
+    elif page == "Add New Compound":
+        add_compound_page()
     elif page == "Batch Processing":
         batch_processing_page()
     else:
@@ -90,6 +92,7 @@ def converter_page():
     
     with col2:
         st.subheader("Results")
+        # Display results if they exist
         if 'last_result' in st.session_state:
             display_results(st.session_state.last_result)
 
@@ -106,12 +109,9 @@ def process_stilbar_code(stilbar_code: str, result_column):
             'metadata': metadata
         }
         
-        # Store in session state
+        # Store in session state with input tracking
         st.session_state.last_result = result
-        
-        # Display results in the specified column
-        with result_column:
-            display_results(result)
+        st.session_state.last_input = stilbar_code
 
 def display_results(result: Dict):
     """Display conversion results"""
@@ -154,7 +154,10 @@ def display_results(result: Dict):
                 st.write(f"**Linkage:** {metadata['linkage_info']}")
             
             if 'note' in metadata:
-                st.info(f"**Note:** {metadata['note']}")
+                if metadata.get('type') == 'partial_match':
+                    st.warning(f"**Note:** {metadata['note']}")
+                else:
+                    st.info(f"**Note:** {metadata['note']}")
         
         # Molecular analysis (if RDKit is available)
         if RDKIT_AVAILABLE and smiles:
@@ -320,6 +323,153 @@ def known_compounds_page():
         with col2:
             if RDKIT_AVAILABLE and selected_compound['SMILES']:
                 analyze_molecule(selected_compound['SMILES'], selected_compound['StilBAR Code'])
+
+def add_compound_page():
+    """Add new compound to database"""
+    st.header("Add New StilBAR Compound")
+    
+    st.markdown("Enter details for a new compound to add to the database.")
+    
+    # Form for new compound entry
+    with st.form("add_compound_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            compound_name = st.text_input(
+                "Compound Name *",
+                placeholder="e.g., My_New_Compound_cpd1",
+                help="Enter a descriptive name for the compound"
+            )
+            
+            stilbar_code = st.text_input(
+                "StilBAR Code *",
+                placeholder="e.g., H-77-H or T|–04r.15r–|H",
+                help="Enter the StilBAR notation for this compound"
+            )
+        
+        with col2:
+            smiles_string = st.text_input(
+                "SMILES String *",
+                placeholder="e.g., OC1=CC=C(CCC2=C(C3=C(CCC4=CC=C(O)C=C4)C=C(O)C=C3O)C(O)=CC(O)=C2)C=C1",
+                help="Enter the SMILES string for this compound"
+            )
+            
+            notes = st.text_area(
+                "Notes (optional)",
+                placeholder="Additional information about this compound",
+                height=100
+            )
+        
+        submitted = st.form_submit_button("Add Compound", type="primary")
+        
+        if submitted:
+            if compound_name and stilbar_code and smiles_string:
+                add_new_compound(compound_name, stilbar_code, smiles_string, notes)
+            else:
+                st.error("Please fill in all required fields (marked with *)")
+
+def add_new_compound(name: str, stilbar: str, smiles: str, notes: str = ""):
+    """Process and add new compound to database"""
+    
+    # Validate and clean inputs
+    cleaned_name = name.strip()
+    cleaned_stilbar = stilbar.strip().replace(' ', '').replace('-', '–')  # Normalize
+    cleaned_smiles = smiles.strip()
+    
+    # Basic validation
+    validation_errors = []
+    
+    if not cleaned_name:
+        validation_errors.append("Compound name cannot be empty")
+    
+    if not cleaned_stilbar:
+        validation_errors.append("StilBAR code cannot be empty")
+    
+    if not cleaned_smiles:
+        validation_errors.append("SMILES string cannot be empty")
+    
+    # Validate SMILES format using RDKit if available
+    if RDKIT_AVAILABLE and cleaned_smiles:
+        try:
+            mol = Chem.MolFromSmiles(cleaned_smiles)
+            if mol is None:
+                validation_errors.append("Invalid SMILES format - cannot create molecule")
+        except Exception as e:
+            validation_errors.append(f"SMILES validation error: {e}")
+    
+    # Check for duplicates in current database
+    generator = st.session_state.generator
+    
+    if cleaned_stilbar in generator.barcode_to_smiles:
+        validation_errors.append(f"StilBAR code '{cleaned_stilbar}' already exists in database")
+    
+    # Display validation results
+    if validation_errors:
+        st.error("Validation failed:")
+        for error in validation_errors:
+            st.error(f"• {error}")
+        return
+    
+    # If validation passes, add to database
+    try:
+        # Get next compound number
+        existing_numbers = generator.get_all_compound_numbers()
+        next_number = max(existing_numbers) + 1 if existing_numbers else 1
+        
+        # Add to CSV file
+        import csv
+        csv_file = 'Stilabar_Smiles_Perfect.csv'
+        
+        # Read existing data
+        existing_data = []
+        try:
+            with open(csv_file, 'r', encoding='utf-8-sig') as f:
+                reader = csv.reader(f)
+                existing_data = list(reader)
+        except FileNotFoundError:
+            # Create with header if file doesn't exist
+            existing_data = [['num', 'compound_name', 'barcode', 'smiles']]
+        
+        # Add new compound
+        new_row = [str(next_number), cleaned_name, cleaned_stilbar, cleaned_smiles]
+        existing_data.append(new_row)
+        
+        # Write back to file
+        with open(csv_file, 'w', newline='', encoding='utf-8-sig') as f:
+            writer = csv.writer(f)
+            writer.writerows(existing_data)
+        
+        # Reload the generator's database to include the new compound
+        generator.reload_database()
+        
+        # Success message
+        st.success(f"✅ Successfully added compound {next_number}")
+        
+        # Show compound details
+        with st.expander("Added Compound Details", expanded=True):
+            st.write(f"**Compound Number:** {next_number}")
+            st.write(f"**Name:** {cleaned_name}")
+            st.write(f"**StilBAR Code:** {cleaned_stilbar}")
+            st.write(f"**SMILES:** {cleaned_smiles}")
+            if notes:
+                st.write(f"**Notes:** {notes}")
+        
+        # Show structure if RDKit available
+        if RDKIT_AVAILABLE:
+            try:
+                mol = Chem.MolFromSmiles(cleaned_smiles)
+                if mol:
+                    st.markdown("**2D Structure:**")
+                    img = Draw.MolToImage(mol, size=(400, 300))
+                    st.image(img, caption=f"Structure of {cleaned_name}")
+            except:
+                pass
+        
+        # Suggest testing the new compound
+        st.info(f"💡 You can now test the new compound using StilBAR code: **{cleaned_stilbar}** or compound number: **{next_number}**")
+        
+    except Exception as e:
+        st.error(f"Error adding compound to database: {e}")
 
 def batch_processing_page():
     """Batch processing interface"""

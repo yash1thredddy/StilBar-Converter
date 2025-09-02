@@ -91,7 +91,8 @@ class FixedSMILESGenerator:
         Generate SMILES for any input (barcode or compound number)
         Returns (smiles_string, metadata_dict) for 100% compatibility
         """
-        clean_code = input_code.strip()
+        # Clean input: remove all spaces and normalize
+        clean_code = input_code.strip().replace(' ', '')
         
         # Normalize dashes: convert regular hyphens (-) to en-dashes (–) for compatibility
         normalized_code = clean_code.replace('-', '–')
@@ -128,6 +129,25 @@ class FixedSMILESGenerator:
             }
             
             return smiles, metadata
+        
+        # Method 1c: Try partial/substring matching for incomplete barcodes
+        if clean_code.startswith('|') and clean_code.endswith('|'):
+            # Look for barcodes that contain this pattern
+            for barcode, smiles in self.barcode_to_smiles.items():
+                if clean_code in barcode or normalized_code in barcode:
+                    info = self.compound_info.get(barcode, {})
+                    
+                    metadata = {
+                        'type': 'partial_match',
+                        'smiles': smiles,
+                        'confidence': 0.8,
+                        'method': 'partial_barcode_match',
+                        'compound_number': info.get('number', 'Unknown'),
+                        'compound_name': info.get('name', 'Unknown'),
+                        'note': f'Partial match: found "{clean_code}" in "{barcode}"'
+                    }
+                    
+                    return smiles, metadata
         
         # Method 2: Compound number lookup (handles ALL compounds including those without barcodes)
         if clean_code in self.compound_number_to_smiles:
@@ -249,6 +269,16 @@ class FixedSMILESGenerator:
             'compounds_without_barcodes': compounds_without_barcodes,
             'total_barcode_mappings': len(self.barcode_to_smiles)
         }
+    
+    def reload_database(self):
+        """Reload database from CSV files (useful after adding new compounds)"""
+        # Clear existing data
+        self.compound_number_to_smiles.clear()
+        self.barcode_to_smiles.clear()
+        self.compound_info.clear()
+        
+        # Reload from CSV
+        self._load_all_62_compounds()
 
 if __name__ == "__main__":
     # Test the generator
