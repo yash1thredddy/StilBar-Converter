@@ -41,7 +41,7 @@ def main():
     st.sidebar.header("Navigation")
     page = st.sidebar.selectbox(
         "Choose a page:",
-        ["StilBAR Converter", "Known Compounds", "Add New Compound", "Delete Compounds", "Batch Processing", "About"]
+        ["StilBAR Converter", "Known Compounds", "Add New Compound", "Delete Compounds", "About"]
     )
     
     if page == "StilBAR Converter":
@@ -52,14 +52,40 @@ def main():
         add_compound_page()
     elif page == "Delete Compounds":
         delete_compounds_page()
-    elif page == "Batch Processing":
-        batch_processing_page()
     else:
         about_page()
 
 def converter_page():
-    """Main converter interface"""
-    st.header("StilBAR to SMILES Conversion")
+    """Enhanced converter interface with bidirectional conversion and batch processing"""
+    st.header("🧬 Bidirectional StilBAR ⇔ SMILES Converter")
+    
+    # Conversion mode selector
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        conversion_mode = st.selectbox(
+            "Conversion Direction:",
+            ["StilBAR → SMILES", "SMILES → StilBAR"],
+            key="conversion_mode"
+        )
+    
+    with col2:
+        batch_mode = st.toggle("Multiple Inputs", value=False, key="batch_mode")
+    
+    with col3:
+        st.write("")  # Spacing
+    
+    st.divider()
+    
+    # Handle different modes
+    if conversion_mode == "SMILES → StilBAR":
+        smiles_to_stilbar_page(batch_mode)
+        return
+    
+    # Original StilBAR to SMILES functionality (enhanced with batch mode)
+    if batch_mode:
+        batch_stilbar_to_smiles_page()
+        return
     
     # Input section
     col1, col2 = st.columns([1, 1])
@@ -581,10 +607,12 @@ def add_new_compound(name: str, stilbar: str, smiles: str, notes: str = ""):
             validation_errors.append(f"SMILES validation error: {e}")
     
     # Check for duplicates in current database
-    generator = st.session_state.generator
+    hash_manager = st.session_state.hash_manager
     
-    if cleaned_stilbar in generator.barcode_to_smiles:
-        validation_errors.append(f"StilBAR code '{cleaned_stilbar}' already exists in database")
+    # Check if StilBAR code already exists
+    existing_compound = hash_manager.get_compound_by_stilbar(cleaned_stilbar)
+    if existing_compound:
+        validation_errors.append(f"StilBAR code '{cleaned_stilbar}' already exists in database (compound: {existing_compound['name']})")
     
     # Display validation results
     if validation_errors:
@@ -596,6 +624,7 @@ def add_new_compound(name: str, stilbar: str, smiles: str, notes: str = ""):
     # If validation passes, add to database
     try:
         # Get next compound number
+        generator = st.session_state.generator
         existing_numbers = generator.get_all_compound_numbers()
         next_number = max(existing_numbers) + 1 if existing_numbers else 1
         
@@ -622,8 +651,9 @@ def add_new_compound(name: str, stilbar: str, smiles: str, notes: str = ""):
             writer = csv.writer(f)
             writer.writerows(existing_data)
         
-        # Reload the generator's database to include the new compound
-        generator.reload_database()
+        # Reload both the hash manager and generator to include the new compound
+        st.session_state.hash_manager.load_compounds()
+        st.session_state.generator.reload_database()
         
         # Success message
         st.success(f"✅ Successfully added compound {next_number}")
@@ -761,9 +791,198 @@ def delete_compounds_page():
         # Clear pending deletion only after function call
         st.session_state.pending_deletion = []
 
+def batch_stilbar_to_smiles_page():
+    """Batch StilBAR to SMILES conversion"""
+    st.markdown("**Enter multiple StilBAR codes (one per line):**")
+    stilbar_input = st.text_area(
+        "StilBAR Codes:",
+        placeholder="H–77–H\nH–17–H\nH–11–H\nT|–04r.15r–|H\n...",
+        height=150,
+        key="batch_stilbar_textarea"
+    )
+    
+    if st.button("🔬 Convert All to SMILES", type="primary", key="batch_convert_all"):
+        if stilbar_input:
+            process_batch_stilbar_codes(stilbar_input.strip())
+        else:
+            st.warning("Please enter at least one StilBAR code")
+
+def smiles_to_stilbar_page(batch_mode=False):
+    """SMILES to StilBAR conversion (reverse lookup)"""
+    
+    # Show cleaning info
+    st.info("💡 **SMILES Cleaning**: Spaces, tabs, and newlines will be automatically removed from input SMILES strings for accurate matching.")
+    
+    if batch_mode:
+        st.markdown("**Enter multiple SMILES strings (one per line):**")
+        smiles_input = st.text_area(
+            "SMILES Strings:",
+            placeholder="OC1=CC=C(CCC2=CC=C(O)C=C2)C=C1\nOC1=CC(O)=CC(CCC2=CC=C(O)C=C2)=C1\n...",
+            height=150,
+            key="batch_smiles_textarea"
+        )
+        
+        if st.button("🔍 Find All StilBAR Codes", type="primary", key="batch_find_stilbar"):
+            if smiles_input:
+                process_batch_smiles_strings(smiles_input.strip())
+            else:
+                st.warning("Please enter at least one SMILES string")
+    else:
+        st.markdown("**Enter a SMILES string to find its StilBAR code:**")
+        smiles_input = st.text_input(
+            "SMILES String:", 
+            placeholder="e.g., OC1=CC=C(CCC2=CC=C(O)C=C2)C=C1", 
+            key="single_smiles_input"
+        )
+        
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            if st.button("🔍 Find StilBAR Code", type="primary", key="find_stilbar"):
+                if smiles_input:
+                    process_smiles_string(smiles_input.strip(), col2)
+                else:
+                    st.warning("Please enter a SMILES string")
+
+def process_batch_stilbar_codes(stilbar_input: str):
+    """Process multiple StilBAR codes"""
+    stilbar_codes = [code.strip() for code in stilbar_input.split('\n') if code.strip()]
+    
+    st.subheader(f"🔬 Processing {len(stilbar_codes)} StilBAR codes...")
+    
+    results = []
+    progress_bar = st.progress(0)
+    
+    for i, code in enumerate(stilbar_codes):
+        progress_bar.progress((i + 1) / len(stilbar_codes))
+        
+        generator = st.session_state.generator
+        smiles, metadata = generator.generate_smiles(code)
+        
+        if smiles:
+            results.append({
+                "StilBAR Code": code,
+                "SMILES": smiles,
+                "Compound": metadata.get('compound_name', 'Unknown'),
+                "Status": "✅ Found"
+            })
+        else:
+            results.append({
+                "StilBAR Code": code, 
+                "SMILES": "Not found",
+                "Compound": "N/A",
+                "Status": "❌ Not found"
+            })
+    
+    # Display results
+    st.subheader("📊 Batch Results")
+    found_count = sum(1 for r in results if "✅" in r["Status"])
+    st.info(f"Found: {found_count}/{len(stilbar_codes)} ({found_count/len(stilbar_codes)*100:.1f}%)")
+    
+    # Show results table
+    import pandas as pd
+    df = pd.DataFrame(results)
+    st.dataframe(df, use_container_width=True)
+
+def process_batch_smiles_strings(smiles_input: str):
+    """Process multiple SMILES strings to find StilBAR codes"""
+    smiles_strings = [smiles.strip() for smiles in smiles_input.split('\n') if smiles.strip()]
+    
+    st.subheader(f"🔍 Searching {len(smiles_strings)} SMILES strings...")
+    
+    results = []
+    progress_bar = st.progress(0)
+    hash_manager = st.session_state.hash_manager
+    all_compounds = hash_manager.get_all_compounds()
+    
+    for i, smiles in enumerate(smiles_strings):
+        progress_bar.progress((i + 1) / len(smiles_strings))
+        
+        # Clean input SMILES using same logic as add_new_compound
+        import re
+        original_smiles = smiles.strip()
+        clean_smiles = re.sub(r'\s+', '', original_smiles)  # Remove all whitespace including spaces, tabs, newlines
+        
+        # Track if cleaning was needed
+        was_cleaned = clean_smiles != original_smiles
+        
+        # Find matching compound
+        found = False
+        for compound in all_compounds:
+            if compound['smiles'] == clean_smiles:
+                status = "✅ Found" + (" (cleaned)" if was_cleaned else "")
+                results.append({
+                    "SMILES": original_smiles[:50] + "..." if len(original_smiles) > 50 else original_smiles,
+                    "StilBAR Code": compound['stilbar'],
+                    "Compound": compound['name'],
+                    "Status": status
+                })
+                found = True
+                break
+        
+        if not found:
+            status = "❌ Not found" + (" (cleaned)" if was_cleaned else "")
+            results.append({
+                "SMILES": original_smiles[:50] + "..." if len(original_smiles) > 50 else original_smiles,
+                "StilBAR Code": "Not found",
+                "Compound": "N/A", 
+                "Status": status
+            })
+    
+    # Display results
+    st.subheader("📊 Reverse Lookup Results")
+    found_count = sum(1 for r in results if "✅" in r["Status"])
+    st.info(f"Found: {found_count}/{len(smiles_strings)} ({found_count/len(smiles_strings)*100:.1f}%)")
+    
+    # Show results table
+    import pandas as pd
+    df = pd.DataFrame(results)
+    st.dataframe(df, use_container_width=True)
+
+def process_smiles_string(smiles_input: str, result_column):
+    """Process single SMILES string to find StilBAR code"""
+    with result_column:
+        st.subheader("🔍 Reverse Lookup Results")
+        
+        # Clean input SMILES using same logic as add_new_compound
+        import re
+        clean_smiles = re.sub(r'\s+', '', smiles_input.strip())  # Remove all whitespace including spaces, tabs, newlines
+        
+        # Show cleaning info if needed
+        if clean_smiles != smiles_input.strip():
+            st.info(f"🧹 Cleaned SMILES: `{clean_smiles}`")
+        
+        hash_manager = st.session_state.hash_manager
+        all_compounds = hash_manager.get_all_compounds()
+        
+        # Find matching compound
+        found_compound = None
+        for compound in all_compounds:
+            if compound['smiles'] == clean_smiles:
+                found_compound = compound
+                break
+        
+        if found_compound:
+            st.success("✅ Match found!")
+            
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                st.markdown("**StilBAR Code:**")
+                st.code(found_compound['stilbar'])
+                
+                st.markdown("**Compound Name:**")
+                st.write(found_compound['name'])
+            
+            with col2:
+                if RDKIT_AVAILABLE:
+                    analyze_molecule(clean_smiles, found_compound['stilbar'])
+        else:
+            st.error("❌ No matching compound found in database")
+            st.info("This SMILES string is not present in our StilBAR database.")
+
 def batch_processing_page():
-    """Batch processing interface"""
+    """Legacy batch processing interface - now integrated into main converter"""
     st.header("Batch Processing")
+    st.info("📢 Batch processing has been moved to the main converter page! Use the 'Multiple Inputs' toggle.")
     
     st.markdown("Process multiple StilBAR codes at once")
     
@@ -810,6 +1029,7 @@ def process_batch(stilbar_codes: List[str]):
     progress_bar = st.progress(0)
     status_text = st.empty()
     
+    generator = st.session_state.generator
     for i, code in enumerate(stilbar_codes):
         status_text.text(f"Processing {i+1}/{len(stilbar_codes)}: {code}")
         
@@ -881,8 +1101,8 @@ def about_page():
     # System information
     status_data = {
         "RDKit Available": "✅ Yes" if RDKIT_AVAILABLE else "❌ No",
-        "Total Compounds": st.session_state.generator.get_database_size(),
-        "Available Barcodes": len(st.session_state.generator.barcode_to_smiles)
+        "Total Compounds": len(st.session_state.hash_manager.get_all_compounds()),
+        "Available Barcodes": len([comp for comp in st.session_state.hash_manager.get_all_compounds() if comp['stilbar']])
     }
     
     for key, value in status_data.items():
