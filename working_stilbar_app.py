@@ -7,6 +7,7 @@ import pandas as pd
 import re
 from typing import Dict, List, Tuple, Optional
 from fixed_smiles_generator import FixedSMILESGenerator
+from hash_compound_manager import HashCompoundManager
 
 # Try to import RDKit, fallback gracefully if not available
 try:
@@ -28,15 +29,19 @@ def main():
     st.title("🧬 StilBAR to SMILES Converter")
     st.markdown("Convert STILbenoid BARcode notation to SMILES strings with molecular analysis")
     
-    # Initialize the generator
+    # Initialize hash manager first 
+    if 'hash_manager' not in st.session_state:
+        st.session_state.hash_manager = HashCompoundManager()
+    
+    # Initialize generator to use the SAME hash manager
     if 'generator' not in st.session_state:
-        st.session_state.generator = FixedSMILESGenerator()
+        st.session_state.generator = FixedSMILESGenerator(hash_manager=st.session_state.hash_manager)
     
     # Sidebar
     st.sidebar.header("Navigation")
     page = st.sidebar.selectbox(
         "Choose a page:",
-        ["StilBAR Converter", "Known Compounds", "Add New Compound", "Batch Processing", "About"]
+        ["StilBAR Converter", "Known Compounds", "Add New Compound", "Delete Compounds", "Batch Processing", "About"]
     )
     
     if page == "StilBAR Converter":
@@ -45,6 +50,8 @@ def main():
         known_compounds_page()
     elif page == "Add New Compound":
         add_compound_page()
+    elif page == "Delete Compounds":
+        delete_compounds_page()
     elif page == "Batch Processing":
         batch_processing_page()
     else:
@@ -255,27 +262,23 @@ def analyze_molecule(smiles: str, compound_name: str):
         st.error(f"Error analyzing molecule: {e}")
 
 def known_compounds_page():
-    """Display known compounds from the database"""
+    """Display known compounds from the database using hash-based system"""
     st.header("Known StilBAR Compounds")
     
-    generator = st.session_state.generator
+    hash_manager = st.session_state.hash_manager
     
-    # Get ALL compounds from the updated generator
-    if hasattr(generator, 'barcode_to_smiles'):
-        # Show ALL compounds with barcodes (don't filter - all are valid!)
-        known_complexes = generator.barcode_to_smiles
-    else:
-        known_complexes = {}
+    # Get all compounds from hash manager
+    all_compounds = hash_manager.get_all_compounds()
     
-    st.markdown(f"**Database contains {len(known_complexes)} validated compounds:**")
+    st.markdown(f"**Database contains {len(all_compounds)} validated compounds:**")
     
-    # Create a dataframe for display with compound names
+    # Create a dataframe for display with sequential numbers (but keep hash internally)
     compounds_data = []
-    for stilbar, smiles in known_complexes.items():
-        # Get compound info (including name)
-        compound_info = generator.compound_info.get(stilbar, {})
-        compound_name = compound_info.get('name', 'Unknown')
-        compound_number = compound_info.get('number', 'N/A')
+    for index, compound in enumerate(all_compounds, 1):  # Start from 1 for user display
+        hash_id = compound['hash']
+        compound_name = compound['name']
+        stilbar = compound['stilbar']
+        smiles = compound['smiles']
         
         mol_weight = "N/A"
         if RDKIT_AVAILABLE:
@@ -287,25 +290,29 @@ def known_compounds_page():
                 pass
         
         compounds_data.append({
-            "ID": compound_number,
+            "ID": index,  # Sequential number for user display
+            "Hash": hash_id,  # Keep hash for internal operations
             "Compound Name": compound_name,
             "StilBAR Code": stilbar,
             "SMILES": smiles[:50] + "..." if len(smiles) > 50 else smiles,
+            "Full_SMILES": smiles,  # Keep full SMILES for analysis
             "Molecular Weight": mol_weight
         })
     
     df = pd.DataFrame(compounds_data)
     
-    # Display with selection
+    # Display table with single selection (hide Hash column from users)
+    display_df = df.drop(['Hash', 'Full_SMILES'], axis=1)  # Hide hash and full SMILES
     selected_indices = st.dataframe(
-        df,
+        display_df,
         use_container_width=True,
         hide_index=True,
         selection_mode="single-row",
         on_select="rerun"
     ).selection.rows
     
-    if selected_indices:
+    # Show compound details when selected
+    if 'selected_indices' in locals() and selected_indices:
         selected_idx = selected_indices[0]
         selected_compound = df.iloc[selected_idx]
         
@@ -318,11 +325,175 @@ def known_compounds_page():
             st.code(selected_compound['StilBAR Code'])
             
             st.markdown("**SMILES:**")
-            st.code(selected_compound['SMILES'])
+            st.code(selected_compound['Full_SMILES'])
         
         with col2:
-            if RDKIT_AVAILABLE and selected_compound['SMILES']:
-                analyze_molecule(selected_compound['SMILES'], selected_compound['StilBAR Code'])
+            if RDKIT_AVAILABLE and selected_compound['Full_SMILES']:
+                analyze_molecule(selected_compound['Full_SMILES'], selected_compound['StilBAR Code'])
+    
+
+def delete_selected_compounds(indices_to_delete: list):
+    """Delete selected compounds from the database using hash-based system"""
+    st.write(f"🔍 delete_selected_compounds called with indices: {indices_to_delete}")
+    
+    if not indices_to_delete:
+        st.warning("No compounds selected for deletion")
+        return
+    
+    # Get the current compounds data from hash manager
+    hash_manager = st.session_state.hash_manager
+    all_compounds = hash_manager.get_all_compounds()
+    
+    st.write(f"🔍 Total compounds available: {len(all_compounds)}")
+    
+    # Get compounds to delete by index
+    compounds_to_delete = []
+    for i in indices_to_delete:
+        if i < len(all_compounds):
+            compound = all_compounds[i]
+            compounds_to_delete.append({
+                "Hash": compound['hash'],
+                "Compound Name": compound['name'],
+                "StilBAR Code": compound['stilbar'],
+                "Full_SMILES": compound['smiles']
+            })
+    
+    st.write(f"🔍 Compounds to delete: {len(compounds_to_delete)}")
+    for i, comp in enumerate(compounds_to_delete, 1):
+        st.write(f"  - {i}: {comp['Compound Name']} (Hash: {comp['Hash'][:8]})")
+    
+    if not compounds_to_delete:
+        st.error("Invalid selection indices")
+        return
+    
+    # Show confirmation dialog
+    st.subheader("⚠️ Confirm Deletion")
+    st.error("**You are about to delete the following compounds:**")
+    for i, compound in enumerate(compounds_to_delete, 1):
+        st.write(f"• **{i}** - {compound['Compound Name']} (`{compound['StilBAR Code']}`)")
+    
+    st.warning("This action cannot be undone!")
+    
+    # Use form for more reliable submission
+    with st.form("delete_confirmation_form"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            confirm_delete = st.form_submit_button("✅ Confirm Delete", type="primary")
+        
+        with col2:
+            cancel_delete = st.form_submit_button("❌ Cancel")
+        
+        if confirm_delete:
+            st.write("🔍 Confirm Delete clicked via form!")
+            with st.spinner("Deleting compounds..."):
+                perform_deletion_via_backend(compounds_to_delete)
+        
+        if cancel_delete:
+            st.write("🔍 Cancel clicked via form!")
+            st.session_state.compounds_to_delete = []
+            st.rerun()
+
+def simple_delete_compounds(selected_compounds: list):
+    """Simple, direct deletion function with progress tracking"""
+    st.write(f"🔄 Starting deletion of {len(selected_compounds)} compounds...")
+    
+    # Create progress tracking
+    progress_bar = st.progress(0, text="Initializing deletion...")
+    status_text = st.empty()
+    
+    try:
+        # Step 1: Get hash manager
+        progress_bar.progress(10, text="Getting hash manager...")
+        hash_manager = st.session_state.hash_manager
+        
+        # Step 2: Extract hashes
+        progress_bar.progress(20, text="Extracting compound hashes...")
+        hashes_to_delete = [comp['hash'] for comp in selected_compounds]
+        st.write(f"📝 Deleting hashes: {[h[:8] for h in hashes_to_delete]}")
+        
+        # Step 3: Show counts before deletion
+        before_count = len(hash_manager.get_all_compounds())
+        st.write(f"🔍 Compounds before deletion: {before_count}")
+        
+        # Step 4: Perform deletion
+        progress_bar.progress(50, text="Performing deletion...")
+        status_text.write("🗑️ Calling hash_manager.delete_compounds()...")
+        
+        result = hash_manager.delete_compounds(hashes_to_delete)
+        
+        # Step 5: Show counts after deletion
+        after_count = len(hash_manager.get_all_compounds())
+        st.write(f"🔍 Compounds after deletion: {after_count}")
+        st.write(f"🔍 Expected reduction: {len(hashes_to_delete)}, Actual reduction: {before_count - after_count}")
+        
+        # Step 4: Check results
+        progress_bar.progress(70, text="Checking deletion results...")
+        
+        if result.get('success'):
+            # Step 5: Show results
+            progress_bar.progress(80, text="Processing results...")
+            st.success(f"✅ Successfully deleted {result.get('deleted_count', 0)} compounds!")
+            
+            # Show what was deleted
+            for deleted in result.get('deleted_compounds', []):
+                st.write(f"🗑️ {deleted['name']} ({deleted['stilbar']})")
+            
+            # Step 6: Reload data
+            progress_bar.progress(90, text="Reloading databases...")
+            
+            # Force reload hash manager from disk (this reloads from CSV)
+            hash_manager.load_compounds()
+            
+            # Since generator uses same hash manager, it's already updated
+            # No need to recreate anything - they share the same data source
+            
+            # Get fresh count after reload
+            final_count = hash_manager.get_all_compounds()
+            st.write(f"🔍 Final compound count after reload: {len(final_count)}")
+            
+            # Step 7: Complete
+            progress_bar.progress(100, text="Deletion completed successfully!")
+            status_text.write("✅ Deletion process completed!")
+            
+            # Mark completion in session state
+            st.session_state.deletion_completed = True
+            st.session_state.deletion_success = True
+            
+            st.balloons()
+            
+            # Small delay to show completion
+            import time
+            time.sleep(1)
+            
+            st.rerun()
+        else:
+            progress_bar.progress(100, text="Deletion failed!")
+            st.error("❌ Deletion failed:")
+            for error in result.get('errors', []):
+                st.error(f"• {error}")
+            
+            # Mark failure in session state
+            st.session_state.deletion_completed = True
+            st.session_state.deletion_success = False
+                
+    except Exception as e:
+        progress_bar.progress(100, text="Error occurred during deletion!")
+        st.error(f"💥 Error: {e}")
+        import traceback
+        st.code(traceback.format_exc())
+        
+        # Mark error in session state
+        st.session_state.deletion_completed = True
+        st.session_state.deletion_success = False
+
+def perform_deletion_via_backend(compounds_to_delete: list):
+    """Legacy function - redirects to simple delete"""
+    simple_delete_compounds(compounds_to_delete)
+
+def perform_deletion(compounds_to_delete: list):
+    """Legacy deletion function - kept for reference"""
+    st.warning("This function is deprecated - using backend deletion instead")
 
 def add_compound_page():
     """Add new compound to database"""
@@ -348,10 +519,11 @@ def add_compound_page():
             )
         
         with col2:
-            smiles_string = st.text_input(
+            smiles_string = st.text_area(
                 "SMILES String *",
                 placeholder="e.g., OC1=CC=C(CCC2=C(C3=C(CCC4=CC=C(O)C=C4)C=C(O)C=C3O)C(O)=CC(O)=C2)C=C1",
-                help="Enter the SMILES string for this compound"
+                help="Enter the SMILES string for this compound. Spaces and newlines will be automatically removed.",
+                height=100
             )
             
             notes = st.text_area(
@@ -374,7 +546,18 @@ def add_new_compound(name: str, stilbar: str, smiles: str, notes: str = ""):
     # Validate and clean inputs
     cleaned_name = name.strip()
     cleaned_stilbar = stilbar.strip().replace(' ', '').replace('-', '–')  # Normalize
-    cleaned_smiles = smiles.strip()
+    # Clean SMILES: remove only whitespace characters (spaces, newlines, tabs) but preserve structure
+    import re
+    # Remove whitespace characters but preserve all structural characters like (), [], @, etc.
+    cleaned_smiles = re.sub(r'\s+', '', smiles)  # Remove all whitespace characters
+    
+    # Show cleaned versions to user for confirmation
+    if cleaned_stilbar != stilbar.strip():
+        st.info(f"**Normalized StilBAR Code:** `{stilbar.strip()}` → `{cleaned_stilbar}`")
+    
+    if cleaned_smiles != smiles.strip():
+        st.info("**Cleaned SMILES (spaces and newlines removed):**")
+        st.code(cleaned_smiles, language='text')
     
     # Basic validation
     validation_errors = []
@@ -470,6 +653,113 @@ def add_new_compound(name: str, stilbar: str, smiles: str, notes: str = ""):
         
     except Exception as e:
         st.error(f"Error adding compound to database: {e}")
+
+def delete_compounds_page():
+    """Dedicated page for deleting compounds"""
+    st.header("🗑️ Delete Compounds")
+    st.markdown("Select compounds to delete from the database. **This action cannot be undone!**")
+    
+    # Get hash manager and compounds
+    hash_manager = st.session_state.hash_manager
+    all_compounds = hash_manager.get_all_compounds()
+    
+    if not all_compounds:
+        st.warning("No compounds found in database.")
+        return
+    
+    st.info(f"📊 Total compounds in database: {len(all_compounds)}")
+    
+    # Search and filter functionality
+    st.subheader("🔍 Filter Compounds")
+    search_term = st.text_input("Search by name or StilBAR code:")
+    
+    # Filter compounds based on search
+    filtered_compounds = []
+    for i, compound in enumerate(all_compounds):
+        if not search_term or search_term.lower() in compound['name'].lower() or search_term.lower() in compound['stilbar'].lower():
+            filtered_compounds.append((i, compound))
+    
+    st.write(f"Found {len(filtered_compounds)} compounds (showing all)")
+    
+    # Show all compounds - no pagination limit
+    compounds_to_show = filtered_compounds
+    
+    # Deletion form  
+    with st.form("deletion_form"):
+        st.subheader("📋 Select Compounds to Delete")
+        st.write(f"Select from {len(compounds_to_show)} compounds:")
+        
+        selected_for_deletion = []
+        
+        # Select all option
+        if st.checkbox("🔘 Select All Visible", key="select_all_delete"):
+            select_all_state = True
+        else:
+            select_all_state = False
+        
+        # Individual compound selection
+        selected_hashes = []
+        for i, (original_index, compound) in enumerate(compounds_to_show):
+            is_selected = st.checkbox(
+                f"**ID {original_index + 1}** - {compound['name'][:50]}{'...' if len(compound['name']) > 50 else ''} (`{compound['stilbar']}`)",
+                value=select_all_state,
+                key=f"delete_compound_{original_index}"
+            )
+            
+            if is_selected:
+                selected_hashes.append(compound['hash'])
+                selected_for_deletion.append({
+                    'hash': compound['hash'],
+                    'name': compound['name'],
+                    'stilbar': compound['stilbar'],
+                    'original_index': original_index
+                })
+        
+        # Show selection count
+        st.write(f"🔍 Selected {len(selected_for_deletion)} compounds for deletion")
+        
+        # Deletion button - save to session state when clicked
+        delete_submitted = st.form_submit_button(
+            f"🗑️ Delete {len(selected_for_deletion)} Selected" if selected_for_deletion else "🗑️ Delete Selected",
+            type="primary"
+        )
+        
+        # Save selection to session state when form is submitted
+        if delete_submitted:
+            st.session_state.pending_deletion = selected_for_deletion
+            st.write(f"🔍 Saved {len(selected_for_deletion)} compounds to session state")
+    
+    # Check for completed deletions and show results
+    if hasattr(st.session_state, 'deletion_completed') and st.session_state.deletion_completed:
+        if st.session_state.deletion_success:
+            st.success("🎉 Deletion completed successfully!")
+            
+            # Use the existing session state hash manager (already updated)
+            current_count = len(hash_manager.get_all_compounds())
+            st.info(f"📊 Database now contains {current_count} compounds")
+        else:
+            st.error("❌ Deletion failed!")
+        
+        # Clear completion flags
+        del st.session_state.deletion_completed
+        del st.session_state.deletion_success
+    
+    # Process deletion using session state (survives rerun)
+    elif hasattr(st.session_state, 'pending_deletion') and st.session_state.pending_deletion:
+        pending = st.session_state.pending_deletion
+        st.write(f"🔄 Processing deletion of {len(pending)} compounds from session state...")
+        
+        for comp in pending:
+            st.write(f"• {comp['name']} (`{comp['stilbar']}`)")
+        
+        # DON'T clear session state until deletion completes
+        # The deletion function will manage this
+        
+        # Call deletion function
+        simple_delete_compounds(pending)
+        
+        # Clear pending deletion only after function call
+        st.session_state.pending_deletion = []
 
 def batch_processing_page():
     """Batch processing interface"""

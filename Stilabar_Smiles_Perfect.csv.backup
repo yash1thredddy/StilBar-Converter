@@ -1,4 +1,4 @@
-num,compound_name,barcode,smiles
+﻿num,compound_name,barcode,smiles
 1,Wolfender2024_PhenoxyRadicalCoupling_cpd10,H,OC1=CC(O)=CC(CCC2=CC=C(O)C=C2)=C1
 2,Wolfender2024_PhenoxyRadicalCoupling_cpd11,H–77–H,OC1=CC=C(CCC2=C(C3=C(CCC4=CC=C(O)C=C4)C=C(O)C=C3O)C(O)=CC(O)=C2)C=C1
 3,Wolfender2024_PhenoxyRadicalCoupling_cpd12,H–17–H,OC1=CC=C(CCC2=CC(O)=CC(O)=C2)C=C1C3=C(CCC4=CC=C(O)C=C4)C=C(O)C=C3O
@@ -6,11 +6,11 @@ num,compound_name,barcode,smiles
 5,Wolfender2024_PhenoxyRadicalCoupling_cpd14,H–07–H,OC1=CC(O)=CC(CCC2=CC=C(OC3=C(CCC4=CC=C(O)C=C4)C=C(O)C=C3O)C=C2)=C1
 6,Wolfender2024_PhenoxyRadicalCoupling_cpd15,H|–02r.13r–|H,OC1=CC(CCC2=CC3=C(C=C2)O[C@@]4([H])[C@]3(CCC5=CC(O)=CC(O)=C5)C=CC(C4)=O)=CC(O)=C1
 7,Wolfender2024_PhenoxyRadicalCoupling_cpd16,H|–02r.13r–|H,OC(C=C1O)=CC2=C1C(CC(C3)=O)C4(CC2)C3OC5=C4C=C(CCC6=CC(O)=CC(O)=C6)C=C5
-8,Wolfender2022_ChiralStilbenes_cpd1,T|–04r.15r–|H,OC(C=C1)=CC=C1[C@H](O2)[C@H](C3=CC(O)=CC(O)=C3)C4=C2C=CC(/C=C/C5=CC(O)=CC(O)=C5)=C4
+8,trans-δ-Viniferin,T|–04r.15r–|H,OC(C=C1)=CC=C1[C@H](O2)[C@H](C3=CC(O)=CC(O)=C3)C4=C2C=CC(/C=C/C5=CC(O)=CC(O)=C5)=C4
 9,Wolfender2022_ChiralStilbenes_cpd2,T|–04r.15r–|P,OC(C=C1)=CC=C1[C@H](O2)[C@H](C3=CC(OC)=CC(OC)=C3)C4=C2C=CC(/C=C/C5=CC(O)=CC(O)=C5)=C4
 10,Wolfender2022_ChiralStilbenes_cpd3,P|–04r.15r–|H,OC(C=C1)=CC=C1[C@H](O2)[C@H](C3=CC(O)=CC(O)=C3)C4=C2C=CC(/C=C/C5=CC(OC)=CC(OC)=C5)=C4
 11,Wolfender2022_ChiralStilbenes_cpd4,P|–04r.15r–|P,OC(C=C1)=CC=C1[C@H](O2)[C@H](C3=CC(OC)=CC(OC)=C3)C4=C2C=CC(/C=C/C5=CC(OC)=CC(OC)=C5)=C4
-12,Wolfender2022_ChiralStilbenes_cpd5,H≡4r7.5r5r.74r≡H,[H][C@@]1([C@@H](C2=C3C=C(C=C2O)O)C(C=C4)=CC=C4O)C5=C([C@H]([C@@]13[H])C(C=C6)=CC=C6O)C(O)=CC(O)=C5
+12,Pallidol,H≡4r7.5r5r.74r≡H,[H][C@@]1([C@@H](C2=C3C=C(C=C2O)O)C(C=C4)=CC=C4O)C5=C([C@H]([C@@]13[H])C(C=C6)=CC=C6O)C(O)=CC(O)=C5
 13,Wolfender2022_ChiralStilbenes_cpd6,T|05s|4shH,OC1=CC(O)=CC(/C=C/C2=CC=C(O[C@H]([C@@H](O)C3=CC=C(O)C=C3)C4=CC(O)=CC(O)=C4)C=C2)=C1
 14,Wolfender2022_ChiralStilbenes_cpd7,P=4s7.5r5s=4riH,[H][C@](C(C=C(O)C=C1O)=C1[C@@H]2C3=CC=C(O)C=C3)([C@](OC(C)C)([H])C4=CC=C(O)C=C4)[C@@H]2C5=CC(OC)=CC(OC)=C5
 15,Wolfender2022_ChiralStilbenes_cpd8,P|–4s4r.5s5s–|P,OC(C=C1)=CC=C1[C@H]2O[C@@H](C3=CC=C(O)C=C3)[C@H](C4=CC(OC)=CC(OC)=C4)[C@H]2C5=CC(OC)=CC(OC)=C5
@@ -60,3 +60,4 @@ num,compound_name,barcode,smiles
 59,Ampelopsin A,H|=4S8.5S7.74S=|5RhH,OC(C=C1)=CC=C1[C@@H](O2)[C@](C3=C4C(O)=CC(O)=C3)([H])C5=C2C=C(O)C=C5[C@H](O)[C@H]4C6=CC=C(O)C=C6
 60,(+)-isoampelopsin F,H≡4R5R.5S7.74S≡H,OC1=C(C2C3C4=CC=C(O)C=C4)C(C3[C@H](C5=C(O)C=C(O)C=C52)C6=CC=C(O)C=C6)=CC(O)=C1
 61,resAgOAcMeOH1h5a,T|05S|4SmH,OC1=CC(O)=CC(/C=C/C2=CC=C(O[C@H]([C@@H](OC)C3=CC=C(O)C=C3)C4=CC(O)=CC(O)=C4)C=C2)=C1
+62,resAgOACMeOH3,H=4R7.5S5R=4SmH,OC1=CC([C@H]2[C@H](C3=CC=C(O)C=C3)C4=C(O)C=C(O)C=C4[C@@H]2[C@H](OC)C5=CC=C(O)C=C5)=CC(O)=C1
