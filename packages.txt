@@ -1,0 +1,7 @@
+libxrender1
+libsm6
+libxext6
+libfreetype6
+libpng16-16
+libglib2.0-0
+libcairo2
