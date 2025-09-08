@@ -11,7 +11,7 @@ from supabase_smiles_generator import SupabaseSMILESGenerator
 # Try to import RDKit, fallback gracefully if not available
 try:
     from rdkit import Chem
-    from rdkit.Chem import Draw, Descriptors, rdMolDescriptors
+    from rdkit.Chem import Draw, Descriptors, rdMolDescriptors, AllChem
     RDKIT_AVAILABLE = True
 except ImportError:
     RDKIT_AVAILABLE = False
@@ -198,7 +198,11 @@ def analyze_molecule(smiles: str, compound_name: str):
         # 2D Structure
         st.markdown("**2D Structure:**")
         try:
-            img = Draw.MolToImage(mol, size=(400, 300))
+            # Generate optimized 2D coordinates to prevent overlapping
+            AllChem.Compute2DCoords(mol)
+            
+            # Larger image size for better visibility
+            img = Draw.MolToImage(mol, size=(600, 450))
             st.image(img, caption=f"Structure of {compound_name}")
         except Exception as e:
             st.warning(f"Could not generate 2D structure: {e}")
@@ -1077,7 +1081,11 @@ def add_new_compound(name: str, stilbar: str, smiles: str, notes: str = ""):
                     mol = Chem.MolFromSmiles(cleaned_smiles)
                     if mol:
                         st.markdown("**2D Structure:**")
-                        img = Draw.MolToImage(mol, size=(400, 300))
+                        # Generate optimized 2D coordinates to prevent overlapping
+                        AllChem.Compute2DCoords(mol)
+                        
+                        # Larger image size for better visibility
+                        img = Draw.MolToImage(mol, size=(600, 450))
                         st.image(img, caption=f"Structure of {cleaned_name}")
                 except:
                     pass
