@@ -45,7 +45,7 @@ def main():
     st.sidebar.header("Navigation")
     page = st.sidebar.selectbox(
         "Choose a page:",
-        ["StilBAR Converter", "Known Compounds", "Add New Compound", "Delete Compounds", "About"]
+        ["StilBAR Converter", "Known Compounds", "Add New Compound", "About"]
     )
     
     if page == "StilBAR Converter":
@@ -54,8 +54,6 @@ def main():
         known_compounds_page()
     elif page == "Add New Compound":
         add_compound_page()
-    elif page == "Delete Compounds":
-        delete_compounds_page()
     else:
         about_page()
 
@@ -492,9 +490,6 @@ def display_selected_compound_details():
             st.markdown("**SMILES String:**")
             st.code(compound['smiles'], language='text')
             
-            # Copy buttons
-            if st.button("📋 Copy SMILES", key=f"copy_smiles_{compound['hash'][:8]}"):
-                st.write("SMILES copied to clipboard!")  # Note: actual clipboard requires JS
     
     # Molecular analysis
     if RDKIT_AVAILABLE and compound['smiles']:
@@ -516,7 +511,13 @@ def display_selected_compound_details():
         
         with col3:
             if st.button("🗑️ Delete This", key=f"delete_{compound['hash'][:8]}", type="secondary"):
-                confirm_single_deletion(compound)
+                # Set deletion confirmation state
+                st.session_state[f'delete_confirm_{compound["hash"]}'] = True
+                st.rerun()
+    
+    # Handle deletion confirmation
+    if st.session_state.get(f'delete_confirm_{compound["hash"]}', False):
+        show_deletion_confirmation(compound)
 
 def test_conversion_result(compound):
     """Test compound conversion functionality"""
@@ -539,8 +540,9 @@ def test_conversion_result(compound):
     else:
         st.warning("⚠️ No StilBAR code available for conversion testing.")
 
-def confirm_single_deletion(compound):
-    """Confirm deletion of a single compound"""
+def show_deletion_confirmation(compound):
+    """Show deletion confirmation dialog"""
+    st.divider()
     st.warning(f"⚠️ **Delete Compound**: {compound['name']}")
     st.write(f"StilBAR: `{compound['stilbar']}`")
     st.write("**This action cannot be undone!**")
@@ -551,6 +553,8 @@ def confirm_single_deletion(compound):
             perform_single_deletion(compound)
     with col2:
         if st.button("↩️ Cancel", key=f"cancel_del_{compound['hash'][:8]}"):
+            # Clear deletion confirmation state
+            del st.session_state[f'delete_confirm_{compound["hash"]}']
             st.rerun()
 
 def perform_single_deletion(compound):
@@ -562,6 +566,9 @@ def perform_single_deletion(compound):
         
         if result['success']:
             st.success(f"✅ Successfully deleted {compound['name']}")
+            # Clear deletion confirmation state
+            if f'delete_confirm_{compound["hash"]}' in st.session_state:
+                del st.session_state[f'delete_confirm_{compound["hash"]}']
             # Clear selection
             st.session_state.selected_compound_hash = None
             st.rerun()
@@ -1098,84 +1105,6 @@ def add_new_compound(name: str, stilbar: str, smiles: str, notes: str = ""):
     except Exception as e:
         st.error(f"Error adding compound to database: {e}")
 
-def delete_compounds_page():
-    """Dedicated page for deleting compounds"""
-    st.header("🗑️ Delete Compounds")
-    st.markdown("Select compounds to delete from the database. **This action cannot be undone!**")
-    
-    generator = st.session_state.generator
-    all_compounds = generator.compound_manager.get_all_compounds()
-    
-    if not all_compounds:
-        st.warning("No compounds found in database.")
-        return
-    
-    st.info(f"📊 Total compounds in database: {len(all_compounds)}")
-    
-    # Search and filter functionality
-    st.subheader("🔍 Filter Compounds")
-    search_term = st.text_input("Search by name or StilBAR code:")
-    
-    # Filter compounds based on search
-    filtered_compounds = []
-    for compound in all_compounds:
-        if not search_term or search_term.lower() in compound['name'].lower() or search_term.lower() in compound['stilbar'].lower():
-            filtered_compounds.append(compound)
-    
-    st.write(f"Found {len(filtered_compounds)} compounds")
-    
-    # Deletion form  
-    with st.form("deletion_form"):
-        st.subheader("📋 Select Compounds to Delete")
-        
-        selected_for_deletion = []
-        
-        # Select all option
-        if st.checkbox("🔘 Select All Visible", key="select_all_delete"):
-            select_all_state = True
-        else:
-            select_all_state = False
-        
-        # Individual compound selection
-        for i, compound in enumerate(filtered_compounds):
-            is_selected = st.checkbox(
-                f"**{compound['hash'][:8]}** - {compound['name'][:50]}{'...' if len(compound['name']) > 50 else ''} (`{compound['stilbar']}`)",
-                value=select_all_state,
-                key=f"delete_compound_{compound['hash']}"
-            )
-            
-            if is_selected:
-                selected_for_deletion.append(compound)
-        
-        # Show selection count
-        st.write(f"🔍 Selected {len(selected_for_deletion)} compounds for deletion")
-        
-        # Deletion button
-        delete_submitted = st.form_submit_button(
-            f"🗑️ Delete {len(selected_for_deletion)} Selected" if selected_for_deletion else "🗑️ Delete Selected",
-            type="primary"
-        )
-        
-        if delete_submitted and selected_for_deletion:
-            # Perform deletion
-            hash_ids = [comp['hash'] for comp in selected_for_deletion]
-            
-            with st.spinner(f"Deleting {len(selected_for_deletion)} compounds..."):
-                result = generator.delete_compounds(hash_ids)
-                
-                if result['success']:
-                    st.success(f"✅ Successfully deleted {result['deleted_count']} compounds!")
-                    
-                    # Show what was deleted
-                    for deleted in result['deleted_compounds']:
-                        st.write(f"🗑️ {deleted['name']} ({deleted['stilbar']})")
-                    
-                    st.balloons()
-                    st.rerun()
-                else:
-                    st.error("❌ Deletion failed:")
-                    for error in result['errors']:
-                        st.error(f"• {error}")
 
 def batch_stilbar_to_smiles_page():
     """Batch StilBAR to SMILES conversion"""
