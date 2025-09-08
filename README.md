@@ -1,259 +1,265 @@
-# StilBAR to SMILES Converter
+# StilBAR to SMILES Converter (Cloud Edition)
 
-A comprehensive tool for converting StilBAR (STILbenoid BARcodes) notation to SMILES strings with molecular visualization and analysis.
+A modern, cloud-native web application for converting StilBAR (STILbenoid BARcodes) notation to SMILES strings with real-time database integration and molecular analysis.
 
-## Features
+## 🚀 Features
 
 ### Core Functionality
-- **StilBAR Parsing**: Decode StilBAR notation into molecular components
-- **SMILES Generation**: Convert StilBAR codes to SMILES strings
-- **2D Visualization**: Display molecular structures using RDKit
-- **Property Calculation**: Compute molecular descriptors and drug-likeness
-- **Database Integration**: 62+ known stilbenoid compounds from research literature
+- **🧬 StilBAR to SMILES Conversion**: Real-time conversion with multiple lookup methods
+- **🔍 Advanced Search**: Search by StilBAR code, compound name, or database hash ID
+- **📊 Molecular Analysis**: RDKit-powered property calculation and visualization
+- **☁️ Cloud Database**: Persistent PostgreSQL storage via Supabase
+- **📦 Batch Processing**: CSV upload with validation, error handling, and duplicate detection
 
 ### Enhanced Features
-- **Confidence Scoring**: Reliability assessment for conversions
-- **Similarity Search**: Find structurally similar compounds
-- **Batch Processing**: Convert multiple compounds at once
-- **Validation Tools**: Multiple methods to verify results
-- **Database Explorer**: Browse and analyze known compounds
+- **🔄 Real-time Sync**: All changes instantly synchronized across users
+- **✅ Smart Validation**: Comprehensive SMILES and data validation
+- **📈 Interactive Visualizations**: 2D molecular structures and property plots  
+- **🎯 Intelligent Filtering**: Filter by molecular weight, Lipinski properties
+- **📱 Responsive Design**: Works seamlessly on desktop and mobile
 
-## Installation
+## 🛠️ Technology Stack
 
-### Prerequisites
+- **Frontend**: Streamlit (Python web framework)
+- **Backend**: Supabase (PostgreSQL + REST API)
+- **Chemistry**: RDKit (molecular informatics)
+- **Deployment**: Streamlit Cloud ready
+
+## 📋 Prerequisites
+
 - Python 3.8 or higher
-- pip package manager
+- Supabase account (free tier available)
+- System packages for RDKit (handled automatically on Streamlit Cloud)
 
-### Setup
-1. Clone or download this repository
-2. Install required packages:
+## 🔧 Installation & Setup
+
+### 1. Clone Repository
+```bash
+git clone <your-repository-url>
+cd "stilBar/Part 2"
+```
+
+### 2. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### Package Requirements
-- **streamlit**: Web interface framework
-- **rdkit**: Chemical informatics toolkit
-- **pandas**: Data manipulation and analysis
-- **plotly**: Interactive visualizations
-- **numpy**: Numerical computations
-- **matplotlib**: Plotting library
-
-## Usage
-
-### Basic Streamlit Application
-Run the basic application:
+### 3. Supabase Setup
+1. Create a new Supabase project at [supabase.com](https://supabase.com)
+2. Run the database setup script:
 ```bash
-streamlit run stilbar_app.py
+python setup_supabase.py
+```
+3. Configure environment variables:
+
+#### Local Development (.env file):
+```env
+SUPABASE_URL=your-project-url
+SUPABASE_KEY=your-anon-key
 ```
 
-### Enhanced Application
-Run the enhanced version with database integration:
-```bash
-streamlit run enhanced_stilbar_app.py
+#### Streamlit Cloud (.streamlit/secrets.toml):
+```toml
+[supabase]
+url = "your-project-url"
+key = "your-anon-key"
 ```
 
-### Command Line Testing
-Run basic tests without RDKit:
+### 4. Test Connection
 ```bash
-python run_tests.py
+python test_supabase_connection.py
 ```
 
-Run comprehensive test suite (requires RDKit):
+### 5. Run Application
 ```bash
-python test_stilbar_converter.py
+streamlit run stilbar_app_supabase.py
 ```
 
-## StilBAR Notation Guide
+## 🎯 Usage Guide
 
-### Monomers (Basic Units)
+### Main Converter
+1. **Single Conversion**: Enter StilBAR code in the input field
+2. **Results**: View SMILES string, molecular structure, and properties
+3. **Analysis**: Explore molecular descriptors and drug-likeness metrics
+
+### Compound Browser  
+1. **Search**: Find compounds by name, StilBAR code, or molecular weight range
+2. **Selection**: Click on compounds to view detailed information
+3. **Actions**: Test conversions, find similar compounds, or delete entries
+
+### Batch Upload
+1. **CSV Format**: Use columns `compound_name`, `stilbar_code`, `smiles`
+2. **Upload**: Drag and drop or select CSV file
+3. **Validation**: Review categorized results (Valid/Warnings/Duplicates/Errors)
+4. **Confirmation**: Upload only valid compounds, skip duplicates and errors
+
+### Add New Compounds
+1. **Single Entry**: Use the form to add individual compounds
+2. **Validation**: All three fields (name, StilBAR, SMILES) are required
+3. **Verification**: System checks for duplicates and validates SMILES format
+
+## 📊 Database Schema
+
+### Compounds Table
+| Column | Type | Description |
+|--------|------|-------------|
+| `hash` | VARCHAR(16) | Unique identifier (MD5 hash) |
+| `name` | TEXT | Compound name |
+| `stilbar` | TEXT | StilBAR code |
+| `smiles` | TEXT | SMILES string |
+| `created_at` | TIMESTAMP | Creation timestamp |
+
+### Features
+- **Hash-based IDs**: Unique 16-character identifiers
+- **Full-text Search**: Searchable compound names and StilBAR codes
+- **Data Integrity**: Unique constraints and validation
+- **Audit Trail**: Creation timestamps for all entries
+
+## 🧪 StilBAR Notation Reference
+
+### Basic Components
 - **T**: trans-Resveratrol
-- **H**: diH-Resveratrol (dihydro-resveratrol)
+- **H**: diH-Resveratrol (dihydro-resveratrol)  
 - **C**: cis-Resveratrol
 - **P**: diH-Pterostilbene
-- **M**: 0-Methoxy-diH-Resveratrol
-- **X**: 8-Methoxy-diH-Resveratrol
 
 ### Linkage Types
+- **–** (en-dash): C-C single bond
 - **|**: C-O-C ether bond
-- **–** or **-**: C-C single bond
 - **=**: C-C double bond
-- **≡**: C-C triple bond
 
-### Connection Sites
-- Numbers represent carbon atom positions (0-9)
-- Stereochemistry indicated by R/S after numbers
-- Multiple connections separated by periods
-
-### Substituents
-- **m**: methoxy group (-OCH₃)
-- **h**: hydroxy group (-OH)
-- **i**: isopropoxy group
-- Position and stereochemistry specified with numbers and R/S
-
-## Examples
-
-### Simple Monomers
+### Examples
 ```
-T     -> trans-Resveratrol
-H     -> diH-Resveratrol
-P     -> diH-Pterostilbene
+H–77–H                    -> Simple dimer
+T|–04r.15r–|H            -> trans-δ-Viniferin  
+H|=4S8.5S7.74S=|5RhH     -> Complex structure with stereochemistry
 ```
 
-### Complex Structures
+## 🔍 Lookup Methods
+
+The application uses multiple lookup strategies:
+
+1. **StilBAR Code**: Direct match against database
+2. **Compound Number**: Sequential numbering (1, 2, 3...)
+3. **Hash ID**: Direct hash-based lookup
+4. **Normalization**: Automatic dash conversion (- to –)
+
+## 📁 File Structure
+
 ```
-T|–04r.15r–|H              -> trans-δ-Viniferin
-H|=4S8.5S7.74S=|5RhH       -> Ampelopsin A
-H≡4r7.5r5r.74r≡H           -> Pallidol
-T|05S|4SmH                 -> resAgOAcMeOH1h5a
+├── stilbar_app_supabase.py           # Main Streamlit application
+├── supabase_smiles_generator.py      # SMILES generation logic
+├── supabase_compound_manager.py      # Database management layer
+├── supabase_adapter.py               # Low-level Supabase operations
+├── setup_supabase.py                 # Database initialization
+├── test_supabase_connection.py       # Connection testing
+├── requirements.txt                  # Python dependencies
+├── packages.txt                      # System packages for Streamlit Cloud
+├── .streamlit/secrets.toml           # Streamlit Cloud configuration
+└── .env                              # Local environment variables
 ```
 
-## Database
+## 🚀 Deployment
 
-The application includes a comprehensive database of known stilbenoid compounds:
+### Streamlit Cloud
+1. Connect your GitHub repository
+2. Add Supabase credentials to secrets
+3. Deploy automatically - system packages handled by `packages.txt`
 
-- **62 validated compounds** from research literature
-- **SMILES strings** verified against published structures
-- **Metadata** including compound names and sources
-- **Search functionality** by name or StilBAR code
+### Environment Variables Required
+```toml
+[supabase]
+url = "https://your-project.supabase.co"
+key = "your-anon-key"
+```
 
-### Database Sources
-- Wolfender et al. publications (various years)
-- Peer-reviewed stilbenoid research
-- Validated chemical structures
+## ✅ Testing
 
-## Application Interface
-
-### Pages Available
-
-1. **StilBAR Converter**: Main conversion tool
-   - Input StilBAR codes
-   - Generate SMILES strings
-   - View 2D structures
-   - Calculate molecular properties
-
-2. **Database Explorer**: Browse known compounds
-   - Search by name or code
-   - Detailed compound analysis
-   - Property comparisons
-
-3. **Similarity Search**: Find similar structures
-   - Input SMILES or select reference
-   - Tanimoto similarity scoring
-   - Visual structure comparison
-
-4. **Batch Processing**: Handle multiple compounds
-   - File upload or manual input
-   - Progress tracking
-   - Results export
-
-5. **Validation**: Verify results
-   - Database consistency checks
-   - Custom validation pairs
-   - Reverse lookup testing
-
-## Testing
+### Connection Test
+```bash
+python test_supabase_connection.py
+```
 
 ### Test Coverage
-- Basic StilBAR parsing functionality
-- SMILES generation validation
-- Database consistency checks
-- Property calculation verification
-- Known compound validation
+- ✅ Database connection
+- ✅ Compound CRUD operations  
+- ✅ Search functionality
+- ✅ SMILES validation
+- ✅ Batch upload processing
 
-### Running Tests
-Basic tests (no external dependencies):
-```bash
-python run_tests.py
-```
+## 🔧 Development
 
-Full test suite (requires RDKit):
-```bash
-python test_stilbar_converter.py
-```
+### Architecture
+- **Clean Separation**: UI, business logic, and data access separated
+- **Type Hints**: Full type annotation for better development experience  
+- **Error Handling**: Comprehensive error management and user feedback
+- **Performance**: Optimized queries and caching strategies
 
-### Test Results
-The test suite validates against known compounds and provides:
-- Parsing accuracy assessment
-- SMILES generation success rates
-- Database consistency verification
-- Performance benchmarks
+### Adding Features
+1. **Database Changes**: Update `supabase_adapter.py`
+2. **Business Logic**: Modify `supabase_compound_manager.py`
+3. **UI Changes**: Update `stilbar_app_supabase.py`
+4. **Testing**: Add tests to `test_supabase_connection.py`
 
-## Technical Architecture
+## 🎨 Key Features Highlight
 
-### Core Components
+### Smart Batch Processing
+- **Duplicate Detection**: Automatically identifies existing compounds
+- **Error Categorization**: Separates missing data, duplicates, and validation errors
+- **Selective Upload**: Process only valid entries, skip problematic ones
+- **Clear Feedback**: Visual tabs showing different categories of results
 
-1. **StilBARParser**: Decodes notation into components
-   - Regex-based pattern matching
-   - Component extraction and validation
-   - Error handling and reporting
+### Advanced Search & Filtering
+- **Multi-method Search**: Name, StilBAR code, or molecular weight range
+- **Real-time Results**: Instant filtering as you type
+- **Interactive Selection**: Click-to-view compound details
+- **Property-based Filtering**: Filter by molecular weight ranges
 
-2. **SMILESGenerator**: Converts parsed data to SMILES
-   - Database lookup prioritization
-   - Component-based construction
-   - Validation and verification
+### Molecular Analysis
+- **RDKit Integration**: Professional chemical informatics toolkit
+- **Visual Structures**: 2D molecular structure rendering
+- **Property Calculation**: Molecular weight, LogP, Lipinski parameters
+- **Drug-likeness Assessment**: Rule of Five compliance checking
 
-3. **MolecularAnalyzer**: Computes properties and visualizations
-   - RDKit integration
-   - Property calculation
-   - 2D structure rendering
+## 📈 Performance
 
-4. **Database**: Manages compound information
-   - CSV-based storage
-   - Search and retrieval
-   - Validation utilities
+- **Database**: Optimized PostgreSQL queries via Supabase
+- **Search**: Indexed full-text search for fast compound discovery
+- **Caching**: Session-based caching for improved response times
+- **Scalability**: Cloud-native architecture supports multiple users
 
-### Performance Characteristics
-- **Parsing speed**: ~100-1000 codes/second
-- **Database lookup**: O(1) for exact matches
-- **SMILES generation**: Database-first approach
-- **Memory usage**: Minimal for typical use cases
+## 🆘 Troubleshooting
 
-## Limitations and Future Work
+### Common Issues
+1. **Connection Failed**: Check Supabase credentials and URL
+2. **RDKit Missing**: System packages will auto-install on Streamlit Cloud
+3. **Upload Errors**: Verify CSV format matches expected columns
+4. **Slow Performance**: Check internet connection and Supabase status
 
-### Current Limitations
-- Complex stereochemistry handling
-- Limited reaction template library
-- Database coverage gaps
-- 2D visualization only
+### Support
+- Check connection with `test_supabase_connection.py`
+- Review Streamlit Cloud logs for deployment issues  
+- Verify Supabase dashboard for database status
 
-### Planned Enhancements
-- Machine learning-based SMILES generation
-- 3D molecular visualization
-- Extended reaction templates
-- Bioactivity prediction models
-- API endpoints for integration
+## 📄 License
 
-## Contributing
+MIT License - See LICENSE file for details
 
-### Development Setup
+## 🤝 Contributing
+
 1. Fork the repository
-2. Install development dependencies
-3. Run tests to ensure functionality
-4. Submit pull requests with improvements
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)  
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
 
-### Code Style
-- Follow PEP 8 guidelines
-- Include docstrings for functions
-- Add tests for new functionality
-- Update documentation as needed
+## 📞 Contact
 
-## License
-
-This project is for research and educational purposes. Please cite appropriate sources when using the database or methodology.
-
-## References
-
-- StilBAR nomenclature system documentation
-- Wolfender, J.-L. et al. research publications
-- RDKit: Open-source cheminformatics toolkit
-- Various stilbenoid research papers
-
-## Contact
-
-For questions, issues, or contributions, please use the project's issue tracking system.
+For questions, issues, or contributions, please use the project's GitHub issue system.
 
 ---
 
-**Last Updated**: 2025-01-29
-**Version**: 1.0.0
+**Version**: 2.0.0 (Supabase Edition)  
+**Last Updated**: 2025-09-08  
+**Database**: PostgreSQL via Supabase  
+**Deployment**: Streamlit Cloud Ready

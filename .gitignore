@@ -31,6 +31,7 @@ env/
 ENV/
 env.bak/
 venv.bak/
+.env
 
 # IDE and editor files
 .vscode/
@@ -83,3 +84,4 @@ validation_report.txt
 
 # New folder (appears to be duplicate/backup)
 New folder/
+Files/
