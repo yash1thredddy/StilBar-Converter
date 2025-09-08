@@ -1,10 +1,16 @@
+# Core Application Requirements
 streamlit
+supabase
+python-dotenv
+
+# Chemical Informatics
 rdkit
 pandas
+
+# Data Visualization (optional, for molecular analysis)
 plotly
-pytest
-numpy
 pillow
 matplotlib
-seaborn
-scikit-learn
+
+# Development/Testing (optional)
+pytest

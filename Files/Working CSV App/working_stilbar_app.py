@@ -7,7 +7,7 @@ import pandas as pd
 import re
 from typing import Dict, List, Tuple, Optional
 from fixed_smiles_generator import FixedSMILESGenerator
-from hash_compound_manager import HashCompoundManager
+from config import get_compound_manager
 
 # Try to import RDKit, fallback gracefully if not available
 try:
@@ -29,9 +29,9 @@ def main():
     st.title("🧬 StilBAR to SMILES Converter")
     st.markdown("Convert STILbenoid BARcode notation to SMILES strings with molecular analysis")
     
-    # Initialize hash manager first 
+    # Initialize compound manager first 
     if 'hash_manager' not in st.session_state:
-        st.session_state.hash_manager = HashCompoundManager()
+        st.session_state.hash_manager = get_compound_manager()
     
     # Initialize generator to use the SAME hash manager
     if 'generator' not in st.session_state:
@@ -1074,8 +1074,13 @@ def about_page():
     
     st.subheader("System Status")
     
+    # Database backend info
+    hash_manager = st.session_state.hash_manager
+    backend_type = "🗄️ Supabase" if hasattr(hash_manager, 'is_connected') and hash_manager.is_connected() else "📄 CSV File"
+    
     # System information
     status_data = {
+        "Database Backend": backend_type,
         "RDKit Available": "✅ Yes" if RDKIT_AVAILABLE else "❌ No",
         "Total Compounds": len(st.session_state.hash_manager.get_all_compounds()),
         "Available Barcodes": len([comp for comp in st.session_state.hash_manager.get_all_compounds() if comp['stilbar']])
