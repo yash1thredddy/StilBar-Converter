@@ -1,16 +1,16 @@
-# Core Application Requirements
-streamlit
-supabase
-python-dotenv
+# Core Application Requirements  
+streamlit==1.49.1
+supabase==2.18.1
+python-dotenv==1.1.1
 
 # Chemical Informatics
-rdkit
-pandas
+rdkit==2025.3.6
+pandas==2.3.2
 
 # Data Visualization (optional, for molecular analysis)
-plotly
-pillow
-matplotlib
+plotly==6.3.0
+pillow==11.3.0
+matplotlib==3.10.6
 
 # Development/Testing (optional)
-pytest
+pytest==8.4.2

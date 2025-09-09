@@ -7,6 +7,10 @@ import pandas as pd
 import re
 from typing import Dict, List, Tuple, Optional
 from supabase_smiles_generator import SupabaseSMILESGenerator
+from security_utils import (
+    validate_csv_file_size, secure_display_error, log_security_event,
+    validate_stilbar_code, validate_smiles_input, validate_compound_name
+)
 
 # Try to import RDKit, fallback gracefully if not available
 try:
@@ -181,9 +185,11 @@ def display_results(result: Dict):
             st.info("Install RDKit to see molecular structure and properties")
             
     else:
-        st.error(f"❌ Conversion failed")
+        st.error("❌ Conversion failed")
         if 'error' in metadata:
-            st.error(f"Error: {metadata['error']}")
+            # Don't expose raw error details to users
+            st.error("Please check your input and try again")
+            log_security_event("CONVERSION_FAILED", f"StilBAR conversion failed", "INFO")
 
 def analyze_molecule(smiles: str, compound_name: str):
     """Analyze molecule properties using RDKit"""
@@ -271,7 +277,8 @@ def analyze_molecule(smiles: str, compound_name: str):
             st.warning(f"⚠️ Lipinski Rule of Five: FAIL ({lipinski_violations} violations)")
             
     except Exception as e:
-        st.error(f"Error analyzing molecule: {e}")
+        log_security_event("MOLECULE_ANALYSIS_ERROR", f"Error analyzing molecule", "INFO")
+        st.warning("⚠️ Unable to analyze molecular structure")
 
 def known_compounds_page():
     """Enhanced compound browser with search, filter, and detailed view"""
@@ -658,6 +665,15 @@ def add_batch_compounds_form():
     )
     
     if uploaded_file is not None:
+        # Validate file size
+        file_size = uploaded_file.size if hasattr(uploaded_file, 'size') else len(uploaded_file.getvalue())
+        size_valid, size_error = validate_csv_file_size(file_size)
+        
+        if not size_valid:
+            st.error(f"❌ {size_error}")
+            log_security_event("FILE_SIZE_EXCEEDED", f"CSV upload size: {file_size} bytes", "WARNING")
+            return
+        
         try:
             # Read the CSV file
             df = pd.read_csv(uploaded_file)
@@ -683,7 +699,8 @@ def add_batch_compounds_form():
                 st.dataframe(sample_df, use_container_width=True)
                 
         except Exception as e:
-            st.error(f"❌ Error reading CSV file: {e}")
+            log_security_event("CSV_READ_ERROR", f"Error reading CSV file", "WARNING")
+            secure_display_error(e, "reading CSV file")
             st.info("Please ensure your CSV file is properly formatted and not corrupted.")
 
 def validate_csv_format(df):
@@ -1018,6 +1035,22 @@ def add_new_compound(name: str, stilbar: str, smiles: str, notes: str = ""):
     """Process and add new compound to database"""
     generator = st.session_state.generator
     
+    # Input validation using security utils
+    name_valid, name_error = validate_compound_name(name)
+    if not name_valid:
+        st.error(f"❌ {name_error}")
+        return
+    
+    stilbar_valid, stilbar_error = validate_stilbar_code(stilbar)
+    if not stilbar_valid:
+        st.error(f"❌ {stilbar_error}")
+        return
+    
+    smiles_valid, smiles_error = validate_smiles_input(smiles)
+    if not smiles_valid:
+        st.error(f"❌ {smiles_error}")
+        return
+    
     # Validate and clean inputs
     cleaned_name = name.strip()
     cleaned_stilbar = stilbar.strip().replace(' ', '').replace('-', '–')
@@ -1033,17 +1066,8 @@ def add_new_compound(name: str, stilbar: str, smiles: str, notes: str = ""):
         st.info("**Cleaned SMILES (spaces and newlines removed):**")
         st.code(cleaned_smiles, language='text')
     
-    # Basic validation
+    # Basic validation - now handled by security utils above, but keep RDKit validation
     validation_errors = []
-    
-    if not cleaned_name:
-        validation_errors.append("Compound name cannot be empty")
-    
-    if not cleaned_stilbar:
-        validation_errors.append("StilBAR code cannot be empty")
-    
-    if not cleaned_smiles:
-        validation_errors.append("SMILES string cannot be empty")
     
     # Validate SMILES format using RDKit if available
     if RDKIT_AVAILABLE and cleaned_smiles:
@@ -1052,7 +1076,7 @@ def add_new_compound(name: str, stilbar: str, smiles: str, notes: str = ""):
             if mol is None:
                 validation_errors.append("Invalid SMILES format - cannot create molecule")
         except Exception as e:
-            validation_errors.append(f"SMILES validation error: {e}")
+            validation_errors.append(f"SMILES validation error: {str(e)}")
     
     # Check for duplicates
     existing_compound = generator.compound_manager.get_compound_by_stilbar(cleaned_stilbar)
@@ -1072,6 +1096,7 @@ def add_new_compound(name: str, stilbar: str, smiles: str, notes: str = ""):
         
         if success:
             st.success(f"✅ Successfully added compound with hash: {result}")
+            log_security_event("COMPOUND_ADDED", f"User added compound: {cleaned_name}", "INFO")
             
             # Show compound details
             with st.expander("Added Compound Details", expanded=True):
@@ -1101,9 +1126,11 @@ def add_new_compound(name: str, stilbar: str, smiles: str, notes: str = ""):
             
         else:
             st.error(f"❌ Failed to add compound: {result}")
+            log_security_event("COMPOUND_ADD_FAILED", f"Failed to add compound: {cleaned_name}", "WARNING")
         
     except Exception as e:
-        st.error(f"Error adding compound to database: {e}")
+        log_security_event("COMPOUND_ADD_ERROR", f"Error adding compound", "ERROR")
+        secure_display_error(e, "adding compound to database")
 
 
 def batch_stilbar_to_smiles_page():
