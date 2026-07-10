@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 import streamlit as st
 from dotenv import load_dotenv
+from security_utils import secure_display_error, log_security_event, validate_stilbar_code, validate_smiles_input, validate_compound_name
 
 # Load environment variables
 load_dotenv()
@@ -41,12 +42,16 @@ class SupabaseAdapter:
             
             if supabase_url and supabase_key:
                 self.client = create_client(supabase_url, supabase_key)
-                print(f"✅ Supabase connected to: {supabase_url}")
+                # Only log domain to avoid exposing full project URL
+                from urllib.parse import urlparse
+                domain = urlparse(supabase_url).netloc if supabase_url else "unknown"
+                print(f"✅ Supabase connected to: {domain}")
             else:
                 st.error("❌ Supabase credentials not found. Please set SUPABASE_URL and SUPABASE_ANON_KEY")
                 
         except Exception as e:
-            st.error(f"❌ Failed to initialize Supabase: {e}")
+            log_security_event("SUPABASE_INIT_FAILED", f"Failed to initialize Supabase client", "ERROR")
+            secure_display_error(e, "database initialization")
     
     def _get_credential(self, key: str) -> Optional[str]:
         """Get credential from environment or Streamlit secrets"""
@@ -90,7 +95,8 @@ class SupabaseAdapter:
             return compounds
             
         except Exception as e:
-            st.error(f"❌ Error fetching compounds: {e}")
+            log_security_event("DB_FETCH_ERROR", f"Error fetching compounds", "WARNING")
+            secure_display_error(e, "fetching compound data")
             return []
     
     def get_compound_by_stilbar(self, stilbar_code: str) -> Optional[Dict]:
@@ -115,7 +121,8 @@ class SupabaseAdapter:
             return None
             
         except Exception as e:
-            st.error(f"❌ Error fetching compound by StilBAR: {e}")
+            log_security_event("DB_LOOKUP_ERROR", f"Error fetching compound by StilBAR", "WARNING")
+            secure_display_error(e, "compound lookup")
             return None
     
     def get_compound_by_hash(self, hash_id: str) -> Optional[Dict]:
@@ -140,13 +147,30 @@ class SupabaseAdapter:
             return None
             
         except Exception as e:
-            st.error(f"❌ Error fetching compound by hash: {e}")
+            log_security_event("DB_HASH_LOOKUP_ERROR", f"Error fetching compound by hash", "WARNING") 
+            secure_display_error(e, "compound lookup")
             return None
     
     def add_compound(self, name: str, stilbar_code: str, smiles: str) -> Tuple[bool, str]:
         """Add new compound to database"""
         if not self.client:
             return False, "Database not connected"
+        
+        # Input validation
+        name_valid, name_error = validate_compound_name(name)
+        if not name_valid:
+            log_security_event("INVALID_INPUT", f"Invalid compound name: {name_error}", "WARNING")
+            return False, name_error
+        
+        stilbar_valid, stilbar_error = validate_stilbar_code(stilbar_code)
+        if not stilbar_valid:
+            log_security_event("INVALID_INPUT", f"Invalid StilBAR code: {stilbar_error}", "WARNING")
+            return False, stilbar_error
+        
+        smiles_valid, smiles_error = validate_smiles_input(smiles)
+        if not smiles_valid:
+            log_security_event("INVALID_INPUT", f"Invalid SMILES: {smiles_error}", "WARNING") 
+            return False, smiles_error
         
         try:
             # Generate hash
@@ -170,12 +194,14 @@ class SupabaseAdapter:
             result = self.client.table(self.table_name).insert(data).execute()
             
             if result.data:
+                log_security_event("COMPOUND_ADDED", f"Added compound: {name}", "INFO")
                 return True, hash_id
             else:
                 return False, "Failed to insert compound"
                 
         except Exception as e:
-            return False, f"Error adding compound: {e}"
+            log_security_event("DB_INSERT_ERROR", f"Error adding compound", "ERROR")
+            return False, "Failed to add compound to database"
     
     def delete_compounds(self, hash_ids: List[str]) -> Dict:
         """Delete compounds by hash IDs"""
@@ -284,7 +310,8 @@ class SupabaseAdapter:
             return compounds
             
         except Exception as e:
-            st.error(f"❌ Error searching compounds: {e}")
+            log_security_event("DB_SEARCH_ERROR", f"Error searching compounds", "WARNING")
+            secure_display_error(e, "compound search")
             return []
     
     def get_stats(self) -> Dict:
@@ -308,7 +335,8 @@ class SupabaseAdapter:
             }
             
         except Exception as e:
-            st.error(f"❌ Error getting stats: {e}")
+            log_security_event("DB_STATS_ERROR", f"Error getting database stats", "WARNING")
+            secure_display_error(e, "database statistics")
             return {'total_compounds': 0, 'compounds_with_stilbar': 0, 'compounds_without_stilbar': 0}
     
     def is_connected(self) -> bool:
