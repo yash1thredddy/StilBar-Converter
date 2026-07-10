@@ -41,21 +41,15 @@ def main():
     # Show connection status
     #st.success("✅ Connected to Supabase database")
     
-    # Sidebar
-    st.sidebar.header("Navigation")
-    page = st.sidebar.selectbox(
-        "Choose a page:",
-        ["StilBAR Converter", "Known Compounds", "Add New Compound", "About"]
-    )
-    
-    if page == "StilBAR Converter":
-        converter_page()
-    elif page == "Known Compounds":
-        known_compounds_page()
-    elif page == "Add New Compound":
-        add_compound_page()
-    else:
-        about_page()
+    # Sidebar navigation — native multipage links (not a dropdown)
+    pages = [
+        st.Page(converter_page, title="StilBAR Converter", icon="🧬", default=True),
+        st.Page(known_compounds_page, title="Known Compounds", icon="🔍"),
+        st.Page(add_compound_page, title="Add New Compound", icon="➕"),
+        st.Page(about_page, title="About", icon="ℹ️"),
+    ]
+    pg = st.navigation(pages)
+    pg.run()
 
 def converter_page():
     """Enhanced converter interface with bidirectional conversion and batch processing"""
